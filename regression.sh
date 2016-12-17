@@ -20,7 +20,7 @@ else
 	done < $config_path
 
 	#use python to calculate values
-	python variables.py $config_path
+	python regression.py $config_path
 
 	#assign values to variables
 	while read line; do
@@ -28,9 +28,9 @@ else
 		eval ${stringarray[0]}=${stringarray[1]}
 	done < ${config_dir}${config_name}.vars
 
-	#start plotting the histogram
+	#start plotting the regression
 	gnuplot <<- EOF
-	#!/usr/bin/gnuplot
+		#!/usr/bin/gnuplot
 		reset
 
 		set terminal cairolatex color standalone pdf size 16.5cm, 10cm dashed transparent \

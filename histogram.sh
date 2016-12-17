@@ -22,7 +22,7 @@ else
 	done < $config_path
 
 	#use python to calculate values
-	python variables.py $config_path
+	python histogram.py $config_path
 
 
 	#load values from csv files
@@ -36,6 +36,7 @@ else
 		done < ${config_dir}${filename}.vars
 		#start plotting the histogram
 		gnuplot <<- EOF
+			#!/usr/bin/gnuplot
 			reset
 			set encoding utf8
 

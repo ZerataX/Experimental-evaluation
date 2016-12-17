@@ -3,6 +3,11 @@ l = [0.421, 0.521, 0.661, 0.721, 0.96, 1.009, 1.121]
 tsq = [1.69, 2.22, 2.69, 2.96, 4.41, 4.45, 4.53]
 sigmT = [0.05, 0.3, 0.07, 0.34, 0.42, 0.46, 0.09]
 
+def sigm(valuearray):
+    return np.std(np.array(valuearray))*math.sqrt(len(valuearray))/math.sqrt(len(valuearray)-1)
+
+def mu(valuearray):
+    return np.mean(np.array(valuearray))
 
 def summe(arr1, arr2):
     summ = 0
@@ -10,7 +15,6 @@ def summe(arr1, arr2):
         summ += (i-0.13-4.04*j)**2
         print(str(i) + " & " + str(j) + "\\\\")
     return summ
-
 
 def delta(sigm, x):
     segment1 = 0
