@@ -1,5 +1,6 @@
 import os.path
 import csv
+import math
 import numpy as np
 
 def get_parameter(path, value):
@@ -85,7 +86,7 @@ def create_tex_table(*arg):
                 table += "{} & ".format(add_uncertainty(value, uncertainty, position))
 
         table = table[:-3] + "\\\\\n"
-    table += "\n\\end{tabular}"
+    table += "\\end{tabular}"
     return table
 
 def add_uncertainty(value, uncertainty, position):
@@ -112,16 +113,11 @@ def fix_data_studio(dir):
     Position, Messreihe #11
     Zeit ( s )	Position ( m )
     0,0011	0,393
-    0,1011	0,385
-    0,2011	0,379
-    0,3011	0,376
 
     to
 
     0.0011,0.393
-    0.1011,0.385
-    0.2011,0.379
-    0.3011,0.376
+
     :param dir: the directory with the files
     """
     for root, dirs, files in os.walk(dir):
@@ -136,15 +132,15 @@ def fix_data_studio(dir):
                 lines = open(os.path.join(root, file) + '_fixed').readlines()
                 open(os.path.join(root, file) + '_fixed', 'w').writelines(lines[2:])
 
-def export_csv(filename, *arg, precison=2):
+def export_csv(filename, *arg, precision=2):
     """
     Exportiert Arrays als .csv Datei
     :param *arg: Array of integers
     :param filename: Name der Datei, in welche gespeichert wird.
-    :param precison: Anzahl der Nachkommastellen, nach denen abgeschnitten wird.
+    :param precision: Anzahl der Nachkommastellen, nach denen abgeschnitten wird.
     :return: null
     """
-    p = '%.{k}f'.format(k=precison)
+    p = '%.{k}f'.format(k=precision)
     ps = []
     for arguments in arg:
         ps.append(p)
@@ -159,7 +155,37 @@ def export_csv(filename, *arg, precison=2):
            # comments='# ',
            # header='X , MW'
         )
+        print("[i] csv saved to {}".format(filename))
     except TypeError:
         print("TypeError occured")
         for arguments in arg:
             print(arguments)
+
+def line_prepender(filename, line):
+    with open(filename, 'r+') as f:
+        content = f.read()
+        f.seek(0, 0)
+        f.write(line.rstrip('\r\n') + '\n' + content)
+
+def statistic_error(array, expanded_uncertainty=1.0):
+    n = len(array)
+    mean = sum(array) / n
+    squares = 0
+    for i in array:
+        squares += (i - mean)**2
+    return math.sqrt(squares / (n * (n - 1))) * expanded_uncertainty
+
+
+def error_of_mean(array, error_value):
+    return error_value / math.sqrt(len(array))
+
+
+def mean_value(array):
+    return sum(array) / len(array)
+
+
+def combine_errors(*args):
+    a = 0
+    for v in args:
+        a += v**2
+    return math.sqrt(a)
