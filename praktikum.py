@@ -26,7 +26,7 @@ def create_tex_table(*arg):
     """
     Creates a latex table out of python arrays
 
-    array2tex.create_tex_table( ( array, error, position), ... )
+    array2tex.create_tex_table( ( array, error, position, unit ), ... )
 
     Example:
 
