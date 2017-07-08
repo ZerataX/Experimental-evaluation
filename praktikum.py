@@ -1,7 +1,81 @@
 import os.path
 import csv
+
 import math
+from decimal import Decimal
 import numpy as np
+from sympy import *
+
+
+def funct(expr, vars, var):
+    return diff(expr, vars[var])
+
+
+def alphabetical_symbols(symbols):
+    symbols_string = [str(x) for x in symbols]
+    symbols = [x for (y, x) in sorted(zip(symbols_string, symbols))]
+    return symbols
+
+
+def testf(expr, h_vars, u_vars, values, u_values):
+    """
+    h_vars: all vars in same order as u_vars
+    Values und Variablen müssen in der selben Reihenfolge angegeben werden.
+    Beispiel:
+    f = x*sqrt(y), f.free_symbols = [x, y], u_x=0.5, u_y=0.8, x=5, y=8
+    Dann: u_vars = [x, y], u_values = [0.5, 0.8], values = [5, 8]
+
+    :param expr: Funktion, welche ausgewertet werden soll
+    :param h_vars: Variablen der Funktion, welche mit Unsicherheiten behaftet
+                   sind
+    :param u_vars: Unsicherheitsvariablen der Funktion
+    :param values: Werte, welche für die Parameter eingesetzt werden sollen.
+    :param u_values: Werte, welche für die Unsicherheiten eingesetzt werden.
+    :return:
+    """
+    uncert_fun = uncert_funct(expr, h_vars, u_vars)
+    uncert = uncert_fun.subs(
+        [(a, i) for a, i in zip(h_vars + u_vars, values + u_values)])
+    ergebnis = expr.subs([(a, i) for a, i in zip(h_vars, values)])
+
+    return [ergebnis, uncert]
+
+
+def uncert_funct(expr, p_u_vars, p_uu_vars):
+    """
+    Bsp: uncert_funct(x**2+y**2+z**2, [x, y], [ux, uy])
+    Out: sqrt(4*u(x)**2*x**2 + 4*u(y)**2*y**2)
+    :param expr: Funktion, von welcher die Unsicherheitsfunktion berechnet
+                 werden soll
+    :param p_u_vars: Mit Unsicherheiten behaftete Parameter
+    :param p_uu_vars: Namen der mit Unsicherheit behaften Parameter. Bsp:
+    ux zu x, uy zu y usw...
+    :return: Funktion der Unsicherheit
+    """
+    # all_vars = alphabetical_symbols(list(expr.free_symbols))
+    u_vars = alphabetical_symbols(p_u_vars)
+    uu_vars = alphabetical_symbols(p_uu_vars)
+
+    array_of_f = [diff(expr, v) * u for v, u in zip(u_vars, uu_vars)]
+    funktion = 0
+    for v in array_of_f:
+        funktion += v**2
+    # return simplify(sqrt(funktion))
+    return sqrt(funktion)
+
+
+def squared_uncert(expr, p_u_vars, p_uu_vars):
+    new_vars = [p_u_vars[i] for i in range(len(p_uu_vars))]
+    u_vars = alphabetical_symbols(new_vars)
+    uu_vars = alphabetical_symbols(p_uu_vars)
+
+    array_of_f = [diff(expr, v) * u for v, u in zip(u_vars, uu_vars)]
+    funktion = 0
+    for v in array_of_f:
+        funktion += v**2
+    return funktion
+    # return sqrt(funktion)
+
 
 def get_parameter(path, value):
     """
@@ -14,7 +88,7 @@ def get_parameter(path, value):
     if os.path.isfile(path):
         with open(path) as f:
             for line in f:
-                if not line.startswith("#") and not "," in line:
+                if not line.startswith("#") and "," not in line:
                     line = line.split("=")
                     if value == line[0].strip():
                         return float(line[1].split("#", 1)[0].strip())
@@ -22,11 +96,12 @@ def get_parameter(path, value):
     else:
         print("File does not exist")
 
+
 def create_tex_table(*arg):
     """
     Creates a latex table out of python arrays
 
-    array2tex.create_tex_table( ( array, error, position, unit ), ... )
+    array2tex.create_tex_table( ( array, error, position), ... )
 
     Example:
 
@@ -53,7 +128,15 @@ def create_tex_table(*arg):
     :return:        string of table in latex format
     """
 
-    table = "\\begin{tabular}\n"
+    format_header = "{"
+    if len(arg) == 0:
+        "Mindestens eine Spalte"
+    elif len(arg) == 1:
+        format_header += "c}"
+    else:
+        format_header += "c|" * (len(arg) - 1) + "c}"
+
+    table = "\\begin{tabular}" + format_header + "\n"
 
     for rows in arg:
         table += "ROW & "
@@ -83,11 +166,13 @@ def create_tex_table(*arg):
                     position = positions[index]
                 value = values[index]
 
-                table += "{} & ".format(add_uncertainty(value, uncertainty, position))
+                table += "{} & ".format(add_uncertainty(value,
+                                                        uncertainty, position))
 
         table = table[:-3] + "\\\\\n"
     table += "\\end{tabular}"
     return table
+
 
 def add_uncertainty(value, uncertainty, position):
     """
@@ -99,10 +184,11 @@ def add_uncertainty(value, uncertainty, position):
     :return: string of value + uncertainty in SI format
     """
     value = round(value, position)
-    value = str(value).ljust(position+2,'0')
-    uncertainty = round(uncertainty*10**position)
+    value = str(value).ljust(position + 2, '0')
+    uncertainty = round(uncertainty * 10**position)
     result = "\\SI{{{}({})}}{{}}".format(value, uncertainty)
     return result
+
 
 def fix_data_studio(dir):
     """
@@ -126,18 +212,20 @@ def fix_data_studio(dir):
                 f1 = open(os.path.join(root, file), 'r')
                 f2 = open(os.path.join(root, file) + '_fixed', 'w')
                 for line in f1:
-                    f2.write(line.replace(",",".").replace("\t",","))
+                    f2.write(line.replace(",", ".").replace("\t", ","))
                 f1.close()
                 f2.close()
                 lines = open(os.path.join(root, file) + '_fixed').readlines()
-                open(os.path.join(root, file) + '_fixed', 'w').writelines(lines[2:])
+                open(os.path.join(root, file) +
+                     '_fixed', 'w').writelines(lines[2:])
 
-def export_csv(filename, *arg, precision=2):
+
+def export_csv(filename, *arg, precision=4, delimit=','):
     """
     Exportiert Arrays als .csv Datei
     :param *arg: Array of integers
     :param filename: Name der Datei, in welche gespeichert wird.
-    :param precision: Anzahl der Nachkommastellen, nach denen abgeschnitten wird.
+    :param precision: Anzahl Nachkommastellen, nach denen abgeschnitten wird.
     :return: null
     """
     p = '%.{k}f'.format(k=precision)
@@ -146,14 +234,14 @@ def export_csv(filename, *arg, precision=2):
         ps.append(p)
     try:
         np.savetxt(
-           filename,
-           np.c_[arg],
-           fmt=ps,
-           delimiter=',',
-           newline='\n',
-           # footer='end of file',
-           # comments='# ',
-           # header='X , MW'
+            filename,
+            np.c_[arg],
+            fmt=ps,
+            delimiter=delimit,
+            newline='\n',
+            # footer='end of file',
+            # comments='# ',
+            # header='X , MW'
         )
         print("[i] csv saved to {}".format(filename))
     except TypeError:
@@ -161,11 +249,13 @@ def export_csv(filename, *arg, precision=2):
         for arguments in arg:
             print(arguments)
 
+
 def line_prepender(filename, line):
     with open(filename, 'r+') as f:
         content = f.read()
         f.seek(0, 0)
         f.write(line.rstrip('\r\n') + '\n' + content)
+
 
 def statistic_error(array, expanded_uncertainty=1.0):
     n = len(array)
@@ -180,6 +270,19 @@ def error_of_mean(array, error_value):
     return error_value / math.sqrt(len(array))
 
 
+def complete_mean_error(array, u_array):
+    n = len(u_array)
+    v = n - 2  # Freiheitsgrade
+    expanded = [1.84, 1.32, 1.20, 1.14, 1.11, 1.09, 1.08, 1.07, 10.6, 1.05]
+    faktor = 1
+    if n > 1 and n < 12:
+        faktor = expanded[v]
+
+    methdodical = math.sqrt(sum([(u**2 / n) for u in u_array]))
+    statistic = statistic_error(array, expanded_uncertainty=faktor)
+    return math.sqrt(methdodical**2 + statistic**2)
+
+
 def mean_value(array):
     return sum(array) / len(array)
 
@@ -189,3 +292,62 @@ def combine_errors(*args):
     for v in args:
         a += v**2
     return math.sqrt(a)
+
+
+def divison_error(v1, v2, u_v1, u_v2):  # error of v1/v2 with u_v1, u_v2
+    return math.sqrt((u_v1 / v2)**2 + (u_v2 * v1 / (v2**2))**2)
+
+
+def rd(rad):
+    """
+    returns rad to degree
+    rad: angle in rad.
+    """
+    return rad * 360 / (2 * pi)
+
+
+def dr(deg):
+    """
+    returns degree to rad
+    deg: angle in degree.
+    """
+    return deg * 2 * pi / 360
+
+
+def significant(v, s=2):
+    """
+    :param v: value
+    :param s: significant figures
+    :return:
+    """
+    print(v)
+    if v != 0:
+        rnd_pt = -int(math.floor(math.log10(abs(v))) - (s - 1))
+        if str_decimal(v).replace(".", "").replace("-", "")[rnd_pt - 1] == "1":
+            rnd_pt += 1
+        return round(v, rnd_pt)
+    else:
+        return 0
+
+
+def str_decimal(x):
+    return str(Decimal(str(x)))
+
+
+def scientific(v):
+    print(v)
+    exponent_r = len(str_decimal(v).split(".")[0].replace("-", ""))
+    if str_decimal(v).count("."):
+        exponent_l = len(str_decimal(v).split(".")[1])
+    else:
+        exponent_l = 0
+    if exponent_r > exponent_l:
+        exponent = exponent_r
+    else:
+        exponent = -exponent_l
+    e_factor = int(exponent / 3)
+    if abs(e_factor) >= 1:
+        # return('%.2E' % v)
+        return("{:0=.2f}E{}\n".format(v/(1*10**(e_factor * 3)), e_factor * 3))
+    else:
+        return("{}\n".format(v))
